@@ -2,6 +2,16 @@
 __pycache__/
 *.py[cod]
 *$py.class
+# ===== DATASETS AND LARGE FILES =====
+latest/
+*.pth
+*.pt
+*.zip
+*.png
+data/*_train.csv
+data/*_test.csv
+data/*_val.csv
+
 
 # C extensions
 *.so

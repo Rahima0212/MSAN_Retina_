@@ -1,173 +1,81 @@
-from torch.utils.data import Dataset
-from os.path import join, exists
+import os
+import cv2
+import pandas as pd
+import numpy as np
 from PIL import Image
 import torch
-import os
-import numpy as np
-import pandas as pd
+from torch.utils.data import Dataset
+from torchvision import transforms
 
+def imread_safe(file_path, flags=cv2.IMREAD_COLOR):
+    """Reads image from a path potentially containing Unicode characters."""
+    if not os.path.exists(file_path):
+        return None
+    try:
+        with open(file_path, 'rb') as f:
+            file_buffer = np.frombuffer(f.read(), np.uint8)
+        img = cv2.imdecode(file_buffer, flags)
+        return img
+    except Exception:
+        return None
 
-class datalist(Dataset):
-    def __init__(self, data_dir, mode, phase, transforms_OCT, transforms_fundus, transforms_ROI,
-                 cross, start_from=0, list_dir=None):
-        self.list_dir = data_dir if list_dir is None else list_dir
-        self.data_dir = data_dir
-        self.phase = phase
-        self.transforms_OCT = transforms_OCT
-        self.transforms_fundus = transforms_fundus
-        self.transforms_ROI = transforms_ROI
-        self.image_list_OCT = None
-        self.image_list_fundus = None
-        self.image_list_ROI = None
-        self.mode = mode
-        self.read_lists(cross, start_from)
-        self.simple_label = pd.read_csv(
-            '/media/hxx/9D76-E202/dataset/Multi-modal-retinal-image/training/multi-modal-label-eye-levelv3.csv'
-        ).fillna(0).iloc[:, :].values
-        #print(self.image_list)
-    def __getitem__(self, index):
-        if self.phase == 'train':
-
-            path_OCT = join(self.data_dir, self.image_list_OCT[index])
-            path_fundus = join(self.data_dir, self.image_list_fundus[index])
-            path_ROI = join(self.data_dir, self.image_list_ROI[index])
-            # print(path)
-            # print(index)
-            # print(self.data_dir, self.image_list[index])
-            data_OCT = [Image.open(path_OCT)]
-            data_OCT = list(self.transforms_OCT(*data_OCT))[0]
-            data_fundus = [Image.open(path_fundus)]
-            data_fundus = list(self.transforms_OCT(*data_fundus))[0]
-            data_ROI = [Image.open(path_ROI)]
-            data_ROI = list(self.transforms_OCT(*data_ROI))[0]
-
-            id = os.path.split(path_OCT)[1].split('_')[0]
-            eye = os.path.split(path_OCT)[1].split('_')[1]
-
-            informations = self.simple_label[np.where(self.simple_label[:, 0] == int(id))]
-
-            if informations.shape[0] == 1:
-                if 'ou' in informations:
-                    information = informations[0]
-                    gender = information[2]
-                    age = information[3]
-                    label = information[4:]
-                    label = torch.from_numpy(label.astype('float32'))
-                elif eye in informations:
-                    information = informations[0]
-                    gender = information[2]
-                    age = information[3]
-                    label = information[4:]
-                    label = torch.from_numpy(label.astype('float32'))
-                else:
-                    print(eye, informations, path_OCT, path_fundus)
-                    #print('no',eye,'in', informations)
-                    return
-
-            if informations.shape[0] == 2:
-                if eye in informations[0]:
-                    information = informations[0]
-                    gender = information[2]
-                    age = information[3]
-                    label = information[4:]
-                    label = torch.from_numpy(label.astype('float32'))
-                elif eye in informations[1]:
-                    information = informations[1]
-                    gender = information[2]
-                    age = information[3]
-                    label = information[4:]
-                    label = torch.from_numpy(label.astype('float32'))
-                else:
-                    print(eye, informations, path_OCT, path_fundus)
-                    #print('no', eye, 'in', informations)
-                    return
-
-
-            return id, data_OCT, data_fundus, data_ROI, label, gender, age, path_OCT, path_fundus
-
-        if self.phase == 'val':
-            path_OCT = join(self.data_dir, self.image_list_OCT[index])
-            path_fundus = join(self.data_dir, self.image_list_fundus[index])
-            path_ROI = join(self.data_dir, self.image_list_ROI[index])
-            # print(path)
-            # print(index)
-            # print(self.data_dir, self.image_list[index])
-            data_OCT = [Image.open(path_OCT)]
-            data_OCT = list(self.transforms_OCT(*data_OCT))[0]
-            data_fundus = [Image.open(path_fundus)]
-            data_fundus = list(self.transforms_OCT(*data_fundus))[0]
-            data_ROI = [Image.open(path_ROI)]
-            data_ROI = list(self.transforms_OCT(*data_ROI))[0]
-
-            # print(data.shape)
-            id = os.path.split(path_OCT)[1].split('_')[0]
-            eye = os.path.split(path_OCT)[1].split('_')[1]
-
-            # print(id)
-            '''discriminate os and od'''
-            informations = self.simple_label[np.where(self.simple_label[:, 0] == int(id))]
-
-            if informations.shape[0] == 1:
-                if 'ou' in informations:
-                    information = informations[0]
-                    gender = information[2]
-                    age = information[3]
-                    label = information[4:]
-
-                elif eye in informations:
-                    information = informations[0]
-                    gender = information[2]
-                    age = information[3]
-                    label = information[4:]
-                else:
-                    print(eye, informations)
-                    return
-
-            if informations.shape[0] == 2:
-                if eye in informations[0]:
-                    information = informations[0]
-                    gender = information[2]
-                    age = information[3]
-                    label = information[4:]
-
-                elif eye in informations[1]:
-                    information = informations[1]
-                    gender = information[2]
-                    age = information[3]
-                    label = information[4:]
-
-
-            label = torch.from_numpy(label.astype('float32'))
-
-
-            # print(label.shape)
-            # print(id, path)
-
-            return id, data_OCT, data_fundus,data_ROI, label, gender, age, path_OCT, path_fundus
-
+class MultiModalDataset(Dataset):
+    """
+    Loads Fundus, OCT, and ROI images from the CSVs created by prepare_data.py.
+    """
+    def __init__(self, csv_file, image_size=300, is_training=True):
+        self.data_frame = pd.read_csv(csv_file)
+        self.is_training = is_training
+        
+        # Define transforms
+        # For training, include augmentations
+        if self.is_training:
+            self.fundus_oct_transform = transforms.Compose([
+                transforms.Resize((image_size, image_size)),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomRotation(10),
+                transforms.ColorJitter(brightness=0.1, contrast=0.1),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            ])
+        else: # For validation/testing, just resize, convert, and normalize
+            self.fundus_oct_transform = transforms.Compose([
+                transforms.Resize((image_size, image_size)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            ])
+        
+        # ROI Mask transform is simpler (no normalization or color augmentation)
+        self.roi_transform = transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.ToTensor() # Converts to [0, 1] range
+        ])
 
     def __len__(self):
-        return len(self.image_list_OCT)
+        return len(self.data_frame)
 
-    def read_lists(self, cross, start_from):
-        if self.mode == 'train':
-            image_path_OCT = join(self.list_dir, self.phase + '_'  + 'OCT' + '_images_cross_%d.txt' % cross)
-            image_path_fundus = join(self.list_dir, self.phase + '_' + 'fundus' + '_images_cross_%d.txt' % cross)
-            image_path_ROI = join(self.list_dir, self.phase + '_' + 'OCT_ROI' + '_images_cross_%d.txt' % cross)
-        if self.mode == 'val':
-            image_path_OCT = join(self.list_dir, self.phase + '_' + 'OCT' + '_images_cross_%d.txt' % cross)
-            image_path_fundus = join(self.list_dir, self.phase + '_' + 'fundus' + '_images_cross_%d.txt' % cross)
-            image_path_ROI = join(self.list_dir, self.phase + '_' + 'OCT_ROI' + '_images_cross_%d.txt' % cross)
+    def __getitem__(self, idx):
+        row = self.data_frame.iloc[idx]
+        
+        # 1. Load Fundus Image
+        fundus_img = imread_safe(row['fundus_path'], cv2.IMREAD_COLOR)
+        fundus_img = cv2.cvtColor(fundus_img, cv2.COLOR_BGR2RGB)
+        fundus_pil = Image.fromarray(fundus_img)
+        
+        # 2. Load OCT Image
+        oct_img = imread_safe(row['oct_path'], cv2.IMREAD_GRAYSCALE)
+        oct_pil = Image.fromarray(oct_img).convert("RGB") # Convert to 3 channels
+        
+        # 3. Load ROI Mask
+        roi_img = imread_safe(row['roi_path'], cv2.IMREAD_GRAYSCALE)
+        roi_pil = Image.fromarray(roi_img)
 
-        self.image_list_OCT = [line.strip() for line in open(image_path_OCT, 'r')][start_from:]
-        self.image_list_fundus = [line.strip() for line in open(image_path_fundus, 'r')][start_from:]
-        self.image_list_ROI = [line.strip() for line in open(image_path_ROI, 'r')][start_from:]
+        # Apply transforms
+        fundus_tensor = self.fundus_oct_transform(fundus_pil)
+        oct_tensor = self.fundus_oct_transform(oct_pil)
+        roi_tensor = self.roi_transform(roi_pil)
+        
+        # Get label
+        label = torch.tensor(row['label'], dtype=torch.long)
 
-        if self.phase == 'train':
-            print('Total train OCT image is : %d' % len(self.image_list_OCT))
-            print('Total train fundus image is : %d' % len(self.image_list_fundus))
-            print('Total train ROI image is : %d' % len(self.image_list_ROI))
-        else:
-            print('Total val OCT image is : %d' % len(self.image_list_OCT))
-            print('Total val fundus image is : %d' % len(self.image_list_fundus))
-            print('Total val ROI image is : %d' % len(self.image_list_ROI))
+        return fundus_tensor, oct_tensor, roi_tensor, label
